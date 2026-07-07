@@ -1,5 +1,7 @@
 package com.newsfeed.user.adapter.out.redis;
 
+import com.newsfeed.common.cache.JitteredTtl;
+import com.newsfeed.common.cache.RedisKeys;
 import com.newsfeed.user.application.port.out.UserCountCachePort;
 import com.newsfeed.user.domain.FollowCounts;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -13,7 +15,7 @@ import java.util.Optional;
 @Component
 class UserCountRedisCacheAdapter implements UserCountCachePort {
 
-    private static final Duration TTL = Duration.ofHours(1);
+    private static final Duration BASE_TTL = Duration.ofHours(1);
 
     private final StringRedisTemplate redisTemplate;
 
@@ -23,7 +25,7 @@ class UserCountRedisCacheAdapter implements UserCountCachePort {
 
     @Override
     public Optional<FollowCounts> find(long userId) {
-        Map<Object, Object> entries = redisTemplate.opsForHash().entries(key(userId));
+        Map<Object, Object> entries = redisTemplate.opsForHash().entries(RedisKeys.userCounts(userId));
         if (entries.isEmpty()) {
             return Optional.empty();
         }
@@ -34,16 +36,16 @@ class UserCountRedisCacheAdapter implements UserCountCachePort {
 
     @Override
     public void save(long userId, FollowCounts counts) {
-        String key = key(userId);
+        String key = RedisKeys.userCounts(userId);
         redisTemplate.opsForHash().putAll(key, Map.of(
                 "followers", String.valueOf(counts.followerCount()),
                 "following", String.valueOf(counts.followingCount())));
-        redisTemplate.expire(key, TTL);
+        redisTemplate.expire(key, JitteredTtl.of(BASE_TTL, 0.1));
     }
 
     @Override
     public void incrementIfPresent(long userId, int followerDelta, int followingDelta) {
-        String key = key(userId);
+        String key = RedisKeys.userCounts(userId);
         // EXISTS 확인과 HINCRBY 사이에 TTL 만료가 끼어들 수 있지만,
         // 그 경우 다음 조회 miss 때 DB 값으로 재적재되므로 오차는 자가 치유된다 (§3.2)
         if (!Boolean.TRUE.equals(redisTemplate.hasKey(key))) {
@@ -55,9 +57,5 @@ class UserCountRedisCacheAdapter implements UserCountCachePort {
         if (followingDelta != 0) {
             redisTemplate.opsForHash().increment(key, "following", followingDelta);
         }
-    }
-
-    private String key(long userId) {
-        return "cnt:user:" + userId;
     }
 }

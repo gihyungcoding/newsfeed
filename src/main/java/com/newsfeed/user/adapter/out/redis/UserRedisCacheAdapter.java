@@ -1,5 +1,7 @@
 package com.newsfeed.user.adapter.out.redis;
 
+import com.newsfeed.common.cache.JitteredTtl;
+import com.newsfeed.common.cache.RedisKeys;
 import com.newsfeed.user.application.port.out.UserCachePort;
 import com.newsfeed.user.domain.User;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -17,7 +19,7 @@ import java.util.Optional;
 @Component
 class UserRedisCacheAdapter implements UserCachePort {
 
-    private static final Duration TTL = Duration.ofHours(1);
+    private static final Duration BASE_TTL = Duration.ofHours(1);
 
     private final StringRedisTemplate redisTemplate;
 
@@ -27,7 +29,7 @@ class UserRedisCacheAdapter implements UserCachePort {
 
     @Override
     public Optional<User> find(long userId) {
-        Map<Object, Object> entries = redisTemplate.opsForHash().entries(key(userId));
+        Map<Object, Object> entries = redisTemplate.opsForHash().entries(RedisKeys.userProfile(userId));
         if (entries.isEmpty()) {
             return Optional.empty();
         }
@@ -40,15 +42,12 @@ class UserRedisCacheAdapter implements UserCachePort {
 
     @Override
     public void save(User user) {
-        String key = key(user.id());
+        String key = RedisKeys.userProfile(user.id());
         redisTemplate.opsForHash().putAll(key, Map.of(
                 "username", user.username(),
                 "displayName", user.displayName(),
                 "createdAt", String.valueOf(user.createdAt().toEpochMilli())));
-        redisTemplate.expire(key, TTL);
-    }
-
-    private String key(long userId) {
-        return "user:" + userId;
+        // 지터를 둬서 동시에 적재된 프로필들이 한꺼번에 만료되지 않게 한다 (캐시 눈사태 예방)
+        redisTemplate.expire(key, JitteredTtl.of(BASE_TTL, 0.1));
     }
 }

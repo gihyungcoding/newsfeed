@@ -1,6 +1,7 @@
 package com.newsfeed.common.ratelimit;
 
 import com.newsfeed.common.auth.AuthInterceptor;
+import com.newsfeed.common.cache.RedisKeys;
 import com.newsfeed.common.error.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,7 +36,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true; // 비인증(공개) 요청은 제한하지 않는다
         }
         long window = System.currentTimeMillis() / 1000;
-        String key = "ratelimit:%s:%d".formatted(userId, window);
+        String key = RedisKeys.rateLimit((Long) userId, window);
         Long count = redisTemplate.opsForValue().increment(key);
         if (count != null && count == 1) {
             // 윈도가 지나면 키가 자연 소멸하도록 여유를 둔 TTL

@@ -1,5 +1,6 @@
 package com.newsfeed.user.adapter.out.redis;
 
+import com.newsfeed.common.cache.RedisKeys;
 import com.newsfeed.user.application.port.out.FollowingCachePort;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,6 @@ class FollowingRedisCacheAdapter implements FollowingCachePort {
 
     @Override
     public void evict(long userId) {
-        redisTemplate.delete("following:" + userId);
+        redisTemplate.delete(RedisKeys.following(userId));
     }
 }
