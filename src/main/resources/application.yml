@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: newsfeed
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/newsfeed
+    username: newsfeed
+    password: newsfeed
+
+  jpa:
+    hibernate:
+      ddl-auto: validate   # 스키마는 Flyway가 관리, JPA는 검증만
+    open-in-view: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: newsfeed-fanout
+      auto-offset-reset: earliest
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+newsfeed:
+  fanout:
+    celebrity-threshold: 1000    # 팔로워 수가 이 값을 넘으면 팬아웃 생략 (pull로 전환)
+    follower-batch-size: 1000    # 팬아웃 시 팔로워 조회 페이지 크기
+    feed-max-size: 500           # feed:{userId} Sorted Set 상한
+  feed:
+    cache-ttl-days: 30
+  rate-limit:
+    requests-per-second: 50

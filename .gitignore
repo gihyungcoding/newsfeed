@@ -15,5 +15,9 @@ out/
 .env
 *.local
 
+# 전역 gitignore(~/.gitignore_global)가 application.yml을 제외하지만,
+# 이 프로젝트의 설정에는 비밀값이 없으므로 커밋 대상에 포함한다
+!application.yml
+
 # Logs
 *.log
