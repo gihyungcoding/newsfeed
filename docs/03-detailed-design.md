@@ -37,6 +37,7 @@
 | **뉴스피드** | 뉴스 피드 | `feed:{userId}` | Sorted Set (member=postId, score=작성시각 epoch millis) | 상한 500개 (`ZREMRANGEBYRANK feed:{id} 0 -501`), TTL 30일 (비활성 유저 자연 소멸) |
 | **콘텐츠** | 일반 콘텐츠 | `post:{postId}` | String (JSON) | look-aside, TTL 1시간 |
 | | 인기 콘텐츠 | `author-posts:{celebrityId}` | Sorted Set (member=postId, score=작성시각) | celebrity의 최근 포스트 목록. 조회 시 pull 경로가 매번 DB를 치지 않도록 캐시. 발행 시 write-through, TTL 1시간 |
+| | 작성자 프로필 | `user:{userId}` | Hash `{username, displayName, createdAt}` | look-aside, TTL 1시간. 피드 아이템의 작성자 정보 조립에 사용 |
 | **소셜 그래프** | 팔로잉 | `following:{userId}` | Set (userId) | look-aside, TTL 1시간. 피드 조회 시 celebrity 필터링에 사용 |
 | | 팔로어 | (캐시 안 함 — DB 배치 조회) | — | 팬아웃 워커는 이벤트당 1회, 페이지 단위로 DB에서 직접 읽는다. 반복 조회가 아니라 캐시 실익이 낮음 |
 | **행동** | 좋아요 | `post-likers:{postId}` | Set (userId) | look-aside, TTL 1시간. "내가 좋아요 했는지(likedByMe)" 판정 |
