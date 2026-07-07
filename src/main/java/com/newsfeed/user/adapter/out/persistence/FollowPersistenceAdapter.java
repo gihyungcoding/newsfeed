@@ -19,7 +19,9 @@ class FollowPersistenceAdapter implements FollowRepositoryPort {
 
     @Override
     public void insert(long followerId, long followeeId) {
-        followJpaRepository.save(new FollowJpaEntity(followerId, followeeId));
+        // 즉시 flush해서 PK 위반(동시 중복 팔로우)이 커밋 시점이 아니라
+        // 이 호출 지점에서 DataIntegrityViolationException으로 드러나게 한다
+        followJpaRepository.saveAndFlush(new FollowJpaEntity(followerId, followeeId));
     }
 
     @Override

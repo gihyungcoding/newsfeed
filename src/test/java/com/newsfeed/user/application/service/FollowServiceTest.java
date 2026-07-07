@@ -8,13 +8,18 @@ import com.newsfeed.user.domain.event.UserFollowedEvent;
 import com.newsfeed.user.domain.event.UserUnfollowedEvent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -69,6 +74,40 @@ class FollowServiceTest {
                         e -> assertThat(e.code()).isEqualTo("ALREADY_FOLLOWING"));
 
         verify(followRepository, never()).insert(1L, 2L);
+    }
+
+    @Test
+    void 동시_중복_팔로우_경합은_409로_변환된다() {
+        given(userRepository.existsById(1L)).willReturn(true);
+        given(userRepository.existsById(2L)).willReturn(true);
+        given(followRepository.exists(1L, 2L)).willReturn(false);
+        // exists 통과 후 INSERT 시점에 다른 트랜잭션이 먼저 커밋한 상황
+        willThrow(new DataIntegrityViolationException("duplicate key"))
+                .given(followRepository).insert(1L, 2L);
+
+        assertThatThrownBy(() -> followService.follow(1L, 2L))
+                .isInstanceOfSatisfying(ApiException.class,
+                        e -> assertThat(e.code()).isEqualTo("ALREADY_FOLLOWING"));
+
+        verify(userRepository, never()).incrementFollowerCount(anyLong(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void 횟수_갱신은_항상_id_오름차순으로_잠금을_획득한다() {
+        given(userRepository.existsById(anyLong())).willReturn(true);
+        given(followRepository.exists(anyLong(), anyLong())).willReturn(false);
+
+        // follower(1) < target(2): following(1) 먼저
+        followService.follow(1L, 2L);
+        InOrder ascending = inOrder(userRepository);
+        ascending.verify(userRepository).incrementFollowingCount(1L, 1);
+        ascending.verify(userRepository).incrementFollowerCount(2L, 1);
+
+        // follower(5) > target(3): follower(3) 먼저 — 순서가 뒤집혀도 잠금은 오름차순
+        followService.follow(5L, 3L);
+        InOrder ascending2 = inOrder(userRepository);
+        ascending2.verify(userRepository).incrementFollowerCount(3L, 1);
+        ascending2.verify(userRepository).incrementFollowingCount(5L, 1);
     }
 
     @Test

@@ -7,6 +7,7 @@ import com.newsfeed.user.application.port.out.UserEventPublisherPort;
 import com.newsfeed.user.application.port.out.UserRepositoryPort;
 import com.newsfeed.user.domain.event.UserFollowedEvent;
 import com.newsfeed.user.domain.event.UserUnfollowedEvent;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,9 +45,13 @@ public class FollowService implements FollowUseCase {
             throw ApiException.conflict("ALREADY_FOLLOWING", "이미 팔로우 중입니다");
         }
 
-        followRepository.insert(followerId, targetId);
-        userRepository.incrementFollowerCount(targetId, 1);
-        userRepository.incrementFollowingCount(followerId, 1);
+        try {
+            followRepository.insert(followerId, targetId);
+        } catch (DataIntegrityViolationException e) {
+            // exists 확인과 INSERT 사이에 동시 요청이 먼저 커밋한 경합 — 복합 PK가 최종 방어한다
+            throw ApiException.conflict("ALREADY_FOLLOWING", "이미 팔로우 중입니다");
+        }
+        applyCountDeltas(followerId, targetId, 1);
 
         eventPublisher.publish(new UserFollowedEvent(followerId, targetId));
     }
@@ -58,10 +63,24 @@ public class FollowService implements FollowUseCase {
         if (!followRepository.delete(followerId, targetId)) {
             return;
         }
-        userRepository.incrementFollowerCount(targetId, -1);
-        userRepository.incrementFollowingCount(followerId, -1);
+        applyCountDeltas(followerId, targetId, -1);
 
         eventPublisher.publish(new UserUnfollowedEvent(followerId, targetId));
+    }
+
+    /**
+     * 두 users 행의 잠금을 항상 id 오름차순으로 획득한다.
+     * A→B 팔로우와 B→A 팔로우가 동시에 실행될 때 서로의 행을 반대 순서로 잠그면
+     * 데드락이 발생할 수 있다 — 잠금 순서를 전역적으로 통일하면 원천 차단된다.
+     */
+    private void applyCountDeltas(long followerId, long targetId, int delta) {
+        if (followerId < targetId) {
+            userRepository.incrementFollowingCount(followerId, delta);
+            userRepository.incrementFollowerCount(targetId, delta);
+        } else {
+            userRepository.incrementFollowerCount(targetId, delta);
+            userRepository.incrementFollowingCount(followerId, delta);
+        }
     }
 
     private void requireUser(long userId) {
