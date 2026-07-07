@@ -7,6 +7,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.List;
+import java.util.Set;
 
 /**
  * 작성자별 최근 포스트 캐시 (author-posts:{authorId}, Sorted Set).
@@ -30,5 +32,15 @@ class AuthorPostsRedisCacheAdapter implements AuthorPostsCachePort {
         redisTemplate.opsForZSet().add(key, String.valueOf(postId), createdAtEpochMillis);
         redisTemplate.opsForZSet().removeRange(key, 0, -(MAX_SIZE + 1));
         redisTemplate.expire(key, JitteredTtl.of(BASE_TTL, 0.1));
+    }
+
+    @Override
+    public List<Long> recentPostIds(long authorId, int limit) {
+        // rank 기준 상위 limit개(= score, 즉 작성시각이 가장 큰 쪽) — 순서는 호출자가 병합 시 다시 정렬한다
+        Set<String> members = redisTemplate.opsForZSet().reverseRange(RedisKeys.authorPosts(authorId), 0, limit - 1);
+        if (members == null) {
+            return List.of();
+        }
+        return members.stream().map(Long::parseLong).toList();
     }
 }

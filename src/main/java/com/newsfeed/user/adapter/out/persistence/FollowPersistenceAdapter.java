@@ -36,4 +36,9 @@ class FollowPersistenceAdapter implements FollowRepositoryPort {
     public List<Long> findFollowerIds(long followeeId, Long afterFollowerId, int limit) {
         return followJpaRepository.findFollowerIds(followeeId, afterFollowerId, PageRequest.of(0, limit));
     }
+
+    @Override
+    public List<Long> findCelebrityFolloweeIds(long followerId, int celebrityThreshold) {
+        return followJpaRepository.findCelebrityFolloweeIds(followerId, celebrityThreshold);
+    }
 }

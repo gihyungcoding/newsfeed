@@ -1,5 +1,6 @@
 package com.newsfeed.user.application.service;
 
+import com.newsfeed.user.application.port.in.GetCelebrityFolloweesUseCase;
 import com.newsfeed.user.application.port.in.GetFollowerIdsUseCase;
 import com.newsfeed.user.application.port.out.FollowRepositoryPort;
 import org.springframework.stereotype.Service;
@@ -7,7 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-public class FollowQueryService implements GetFollowerIdsUseCase {
+public class FollowQueryService implements GetFollowerIdsUseCase, GetCelebrityFolloweesUseCase {
 
     private final FollowRepositoryPort followRepository;
 
@@ -18,5 +19,10 @@ public class FollowQueryService implements GetFollowerIdsUseCase {
     @Override
     public List<Long> page(long followeeId, Long afterFollowerId, int limit) {
         return followRepository.findFollowerIds(followeeId, afterFollowerId, limit);
+    }
+
+    @Override
+    public List<Long> celebrityFolloweeIds(long followerId, int celebrityThreshold) {
+        return followRepository.findCelebrityFolloweeIds(followerId, celebrityThreshold);
     }
 }

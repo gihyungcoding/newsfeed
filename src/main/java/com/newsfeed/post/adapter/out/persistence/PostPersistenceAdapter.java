@@ -33,4 +33,9 @@ class PostPersistenceAdapter implements PostRepositoryPort {
         return postJpaRepository.findByAuthor(authorId, cursor, PageRequest.of(0, size))
                 .stream().map(PostJpaEntity::toDomain).toList();
     }
+
+    @Override
+    public List<Post> findAllByIds(List<Long> postIds) {
+        return postJpaRepository.findAllById(postIds).stream().map(PostJpaEntity::toDomain).toList();
+    }
 }

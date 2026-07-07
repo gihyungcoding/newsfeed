@@ -14,4 +14,7 @@ public interface FollowRepositoryPort {
 
     /** followerId 오름차순 페이지 조회. idx_follows_followee(followee_id, follower_id) 인덱스를 탄다. */
     List<Long> findFollowerIds(long followeeId, Long afterFollowerId, int limit);
+
+    /** followerId가 팔로우하는 대상 중 팔로워 수가 threshold를 넘는 사람들의 ID. */
+    List<Long> findCelebrityFolloweeIds(long followerId, int celebrityThreshold);
 }
