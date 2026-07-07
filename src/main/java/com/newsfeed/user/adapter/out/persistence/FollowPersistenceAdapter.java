@@ -1,7 +1,10 @@
 package com.newsfeed.user.adapter.out.persistence;
 
 import com.newsfeed.user.application.port.out.FollowRepositoryPort;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 class FollowPersistenceAdapter implements FollowRepositoryPort {
@@ -27,5 +30,10 @@ class FollowPersistenceAdapter implements FollowRepositoryPort {
     @Override
     public boolean delete(long followerId, long followeeId) {
         return followJpaRepository.deleteById_FollowerIdAndId_FolloweeId(followerId, followeeId) > 0;
+    }
+
+    @Override
+    public List<Long> findFollowerIds(long followeeId, Long afterFollowerId, int limit) {
+        return followJpaRepository.findFollowerIds(followeeId, afterFollowerId, PageRequest.of(0, limit));
     }
 }

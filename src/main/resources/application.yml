@@ -19,9 +19,18 @@ spring:
 
   kafka:
     bootstrap-servers: localhost:9092
+    # 프로듀서/컨슈머 모두 순수 문자열(JSON은 직접 ObjectMapper로 처리)로 주고받는다.
+    # Spring Kafka의 JsonSerializer는 타입 헤더에 발신 측 클래스의 FQCN을 실어 보내는데,
+    # post/fanout 컨텍스트가 의도적으로 서로 다른 메시지 클래스를 쓰므로(계약은 JSON 스키마만
+    # 공유) 그 방식과 맞지 않는다. 명시적인 문자열 (역)직렬화가 더 단순하고 예측 가능하다.
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
     consumer:
       group-id: newsfeed-fanout
       auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 management:
   endpoints:
