@@ -125,6 +125,12 @@ GET /api/feed?cursor={epochMillis}&size=20
 - 좋아요/답글은 **팬아웃하지 않는다.** 피드 캐시에는 postId만 있고, 횟수·likedByMe는 조회 시점에 행동/횟수 캐시에서 조립하므로 포스트를 받은 5,000명의 피드를 갱신할 필요가 없다.
 - Redis 갱신은 커밋 후(after-commit)에 수행한다. 롤백된 트랜잭션이 캐시를 오염시키지 않게 하기 위함이며, 캐시 갱신 실패는 무시해도 §3.2의 자가 치유(look-aside 재적재)로 복구된다.
 
+### 컨텍스트 경계: engagement는 post의 데이터를 직접 건드리지 않는다
+
+`posts.like_count`/`reply_count` 컬럼과 `cnt:post:{id}` 캐시는 **post 컨텍스트가 소유**한다. engagement는 이 값을 직접 UPDATE하거나 Redis에 HINCRBY하지 않고, post 컨텍스트가 노출하는 유스케이스 `UpdatePostCountsUseCase.incrementLikeCount/incrementReplyCount`(port.in)만 호출한다 — fanout이 user의 팔로워 수를 읽기 전용 port.in으로만 조회하는 것과 같은 경계 원칙을 **쓰기 방향**에도 적용한 것이다.
+
+이 호출은 engagement의 `@Transactional` 메서드 안에서 이루어지지만 별도 트랜잭션을 열지 않는다(Spring 기본 전파 REQUIRED) — 좋아요 행 INSERT와 posts.like_count 증가가 **하나의 DB 트랜잭션**으로 원자적으로 커밋되거나 함께 롤백된다. post 컨텍스트의 유스케이스는 DB 증분 직후 자신의 도메인 이벤트(`PostCountsChangedEvent`)를 발행하고, post 자신의 리스너가 커밋 후 `cnt:post` 캐시를 갱신한다 — 이벤트를 누가 호출했는지(engagement)와 무관하게, Spring의 트랜잭션 동기화는 스레드에 바인딩된 현재 트랜잭션 기준이라 정확히 "좋아요+횟수 증가"가 다 커밋된 뒤에만 캐시가 갱신된다.
+
 ## 3.6 웹 서버 계층: 인증과 처리율 제한
 
 책의 웹 서버 역할(인증, rate limiting)을 단순화해 구현한다.

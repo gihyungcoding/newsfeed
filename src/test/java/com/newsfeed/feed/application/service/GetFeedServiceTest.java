@@ -1,5 +1,6 @@
 package com.newsfeed.feed.application.service;
 
+import com.newsfeed.engagement.application.port.in.GetLikedPostIdsUseCase;
 import com.newsfeed.feed.CelebrityThresholdProperties;
 import com.newsfeed.feed.application.port.in.GetFeedUseCase;
 import com.newsfeed.feed.application.port.out.FeedCacheReadPort;
@@ -9,6 +10,7 @@ import com.newsfeed.post.application.port.in.GetPostsByIdsUseCase.PostView;
 import com.newsfeed.post.application.port.in.GetRecentPostsByAuthorUseCase;
 import com.newsfeed.user.application.port.in.GetCelebrityFolloweesUseCase;
 import com.newsfeed.user.application.port.in.GetUserSummaryUseCase;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -16,8 +18,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 
@@ -34,10 +38,18 @@ class GetFeedServiceTest {
     GetPostsByIdsUseCase getPostsByIdsUseCase;
     @Mock
     GetUserSummaryUseCase getUserSummaryUseCase;
+    @Mock
+    GetLikedPostIdsUseCase getLikedPostIdsUseCase;
+
+    @BeforeEach
+    void setUp() {
+        given(getLikedPostIdsUseCase.likedPostIds(anyList(), anyLong())).willReturn(Set.of());
+    }
 
     private GetFeedService service(int celebrityThreshold) {
         return new GetFeedService(feedCacheReadPort, getCelebrityFolloweesUseCase, getRecentPostsByAuthorUseCase,
-                getPostsByIdsUseCase, getUserSummaryUseCase, new CelebrityThresholdProperties(celebrityThreshold));
+                getPostsByIdsUseCase, getUserSummaryUseCase, getLikedPostIdsUseCase,
+                new CelebrityThresholdProperties(celebrityThreshold));
     }
 
     private PostView post(long id, long authorId, long createdAtMillis) {

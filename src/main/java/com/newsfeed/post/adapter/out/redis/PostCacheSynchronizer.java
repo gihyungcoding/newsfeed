@@ -24,7 +24,7 @@ class PostCacheSynchronizer {
 
     @TransactionalEventListener
     void on(PostCreatedEvent event) {
-        postCache.save(new Post(event.postId(), event.authorId(), event.content(), 0, 0, event.createdAt()));
+        postCache.save(new Post(event.postId(), event.authorId(), event.content(), event.createdAt()));
         authorPostsCache.push(event.authorId(), event.postId(), event.createdAt().toEpochMilli());
     }
 }

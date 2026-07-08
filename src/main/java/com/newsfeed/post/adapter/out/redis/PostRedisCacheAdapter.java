@@ -12,7 +12,10 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
-/** 포스트 콘텐츠 캐시 (post:{id}, Hash). */
+/**
+ * 포스트 콘텐츠 캐시 (post:{id}, Hash). content/authorId/createdAt처럼 발행 후 바뀌지 않는
+ * 필드만 담는다 — 좋아요/답글 횟수처럼 자주 바뀌는 값은 별도 캐시(cnt:post:{id})가 맡는다.
+ */
 @Component
 class PostRedisCacheAdapter implements PostCachePort {
 
@@ -34,8 +37,6 @@ class PostRedisCacheAdapter implements PostCachePort {
                 postId,
                 Long.parseLong((String) entries.get("authorId")),
                 (String) entries.get("content"),
-                Integer.parseInt((String) entries.get("likeCount")),
-                Integer.parseInt((String) entries.get("replyCount")),
                 Instant.ofEpochMilli(Long.parseLong((String) entries.get("createdAt")))));
     }
 
@@ -45,8 +46,6 @@ class PostRedisCacheAdapter implements PostCachePort {
         redisTemplate.opsForHash().putAll(key, Map.of(
                 "authorId", String.valueOf(post.authorId()),
                 "content", post.content(),
-                "likeCount", String.valueOf(post.likeCount()),
-                "replyCount", String.valueOf(post.replyCount()),
                 "createdAt", String.valueOf(post.createdAt().toEpochMilli())));
         redisTemplate.expire(key, JitteredTtl.of(BASE_TTL, 0.1));
     }

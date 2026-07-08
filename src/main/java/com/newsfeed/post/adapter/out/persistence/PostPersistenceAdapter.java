@@ -2,6 +2,7 @@ package com.newsfeed.post.adapter.out.persistence;
 
 import com.newsfeed.post.application.port.out.PostRepositoryPort;
 import com.newsfeed.post.domain.Post;
+import com.newsfeed.post.domain.PostCounts;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
@@ -37,5 +38,21 @@ class PostPersistenceAdapter implements PostRepositoryPort {
     @Override
     public List<Post> findAllByIds(List<Long> postIds) {
         return postJpaRepository.findAllById(postIds).stream().map(PostJpaEntity::toDomain).toList();
+    }
+
+    @Override
+    public Optional<PostCounts> findCounts(long postId) {
+        return postJpaRepository.findById(postId)
+                .map(e -> new PostCounts(e.getLikeCount(), e.getReplyCount()));
+    }
+
+    @Override
+    public void incrementLikeCount(long postId, int delta) {
+        postJpaRepository.incrementLikeCount(postId, delta);
+    }
+
+    @Override
+    public void incrementReplyCount(long postId, int delta) {
+        postJpaRepository.incrementReplyCount(postId, delta);
     }
 }

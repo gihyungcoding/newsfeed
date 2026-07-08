@@ -11,7 +11,7 @@ public interface GetFeedUseCase {
     }
 
     record FeedItem(long postId, String content, Instant createdAt, AuthorInfo author,
-                    int likeCount, int replyCount) {
+                    int likeCount, int replyCount, boolean likedByMe) {
     }
 
     /**

@@ -2,6 +2,7 @@ package com.newsfeed.post.adapter.out.persistence;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,4 +17,12 @@ interface PostJpaRepository extends JpaRepository<PostJpaEntity, Long> {
     List<PostJpaEntity> findByAuthor(@Param("authorId") long authorId,
                                      @Param("cursor") Instant cursor,
                                      Pageable pageable);
+
+    @Modifying
+    @Query("update PostJpaEntity p set p.likeCount = p.likeCount + :delta where p.id = :postId")
+    int incrementLikeCount(@Param("postId") long postId, @Param("delta") int delta);
+
+    @Modifying
+    @Query("update PostJpaEntity p set p.replyCount = p.replyCount + :delta where p.id = :postId")
+    int incrementReplyCount(@Param("postId") long postId, @Param("delta") int delta);
 }

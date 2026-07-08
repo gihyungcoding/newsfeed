@@ -1,12 +1,13 @@
 package com.newsfeed.post.application.port.in;
 
 import com.newsfeed.post.domain.Post;
+import com.newsfeed.post.domain.PostCounts;
 
 import java.time.Instant;
 import java.util.List;
 
 /**
- * postId 목록을 받아 콘텐츠를 조립한다 (look-aside: post 캐시 우선, miss만 DB IN 조회).
+ * postId 목록을 받아 콘텐츠 + 횟수를 조립한다 (look-aside: 각각의 캐시 우선, miss만 DB 조회).
  * feed 컨텍스트가 피드 아이템을 조립할 때 쓰는 좁은 유스케이스.
  *
  * <p>반환 타입이 {@code post.domain.Post}가 아니라 이 인터페이스의 {@link PostView}인 이유는
@@ -21,9 +22,9 @@ public interface GetPostsByIdsUseCase {
 
     record PostView(long id, long authorId, String content, int likeCount, int replyCount, Instant createdAt) {
 
-        public static PostView of(Post post) {
+        public static PostView of(Post post, PostCounts counts) {
             return new PostView(post.id(), post.authorId(), post.content(),
-                    post.likeCount(), post.replyCount(), post.createdAt());
+                    counts.likeCount(), counts.replyCount(), post.createdAt());
         }
     }
 }

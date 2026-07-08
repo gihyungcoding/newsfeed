@@ -1,5 +1,6 @@
 package com.newsfeed.feed.application.service;
 
+import com.newsfeed.engagement.application.port.in.GetLikedPostIdsUseCase;
 import com.newsfeed.feed.CelebrityThresholdProperties;
 import com.newsfeed.feed.application.port.in.GetFeedUseCase;
 import com.newsfeed.feed.application.port.out.FeedCacheReadPort;
@@ -15,6 +16,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 하이브리드 뉴스피드 조회 (docs/03-detailed-design.md §3.4).
@@ -28,6 +30,7 @@ public class GetFeedService implements GetFeedUseCase {
     private final GetRecentPostsByAuthorUseCase getRecentPostsByAuthorUseCase;
     private final GetPostsByIdsUseCase getPostsByIdsUseCase;
     private final GetUserSummaryUseCase getUserSummaryUseCase;
+    private final GetLikedPostIdsUseCase getLikedPostIdsUseCase;
     private final CelebrityThresholdProperties celebrityThresholdProperties;
 
     public GetFeedService(FeedCacheReadPort feedCacheReadPort,
@@ -35,12 +38,14 @@ public class GetFeedService implements GetFeedUseCase {
                           GetRecentPostsByAuthorUseCase getRecentPostsByAuthorUseCase,
                           GetPostsByIdsUseCase getPostsByIdsUseCase,
                           GetUserSummaryUseCase getUserSummaryUseCase,
+                          GetLikedPostIdsUseCase getLikedPostIdsUseCase,
                           CelebrityThresholdProperties celebrityThresholdProperties) {
         this.feedCacheReadPort = feedCacheReadPort;
         this.getCelebrityFolloweesUseCase = getCelebrityFolloweesUseCase;
         this.getRecentPostsByAuthorUseCase = getRecentPostsByAuthorUseCase;
         this.getPostsByIdsUseCase = getPostsByIdsUseCase;
         this.getUserSummaryUseCase = getUserSummaryUseCase;
+        this.getLikedPostIdsUseCase = getLikedPostIdsUseCase;
         this.celebrityThresholdProperties = celebrityThresholdProperties;
     }
 
@@ -71,9 +76,14 @@ public class GetFeedService implements GetFeedUseCase {
                 .limit(size)
                 .toList();
 
+        // 이 페이지에 실릴 postId 전체를 한 번에 넘겨 좋아요 여부를 배치로 조회한다
+        // (아이템별로 호출하면 N번의 캐시/DB 왕복이 생긴다)
+        Set<Long> likedPostIds = getLikedPostIdsUseCase.likedPostIds(
+                ordered.stream().map(PostView::id).toList(), userId);
+
         Map<Long, GetUserSummaryUseCase.UserSummary> authorCache = new HashMap<>();
         List<FeedItem> items = ordered.stream()
-                .map(view -> toFeedItem(view, authorCache))
+                .map(view -> toFeedItem(view, authorCache, likedPostIds))
                 .toList();
 
         Long nextCursor = items.size() == size
@@ -83,11 +93,13 @@ public class GetFeedService implements GetFeedUseCase {
         return new FeedPage(items, nextCursor);
     }
 
-    private FeedItem toFeedItem(PostView view, Map<Long, GetUserSummaryUseCase.UserSummary> authorCache) {
+    private FeedItem toFeedItem(PostView view, Map<Long, GetUserSummaryUseCase.UserSummary> authorCache,
+                                Set<Long> likedPostIds) {
         // 같은 작성자의 포스트가 여러 개일 수 있어(특히 celebrity), 요청 하나 안에서는 캐싱해 중복 조회를 줄인다
         GetUserSummaryUseCase.UserSummary summary = authorCache.computeIfAbsent(
                 view.authorId(), getUserSummaryUseCase::getSummary);
         AuthorInfo author = new AuthorInfo(summary.id(), summary.username(), summary.displayName());
-        return new FeedItem(view.id(), view.content(), view.createdAt(), author, view.likeCount(), view.replyCount());
+        return new FeedItem(view.id(), view.content(), view.createdAt(), author,
+                view.likeCount(), view.replyCount(), likedPostIds.contains(view.id()));
     }
 }

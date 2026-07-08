@@ -1,6 +1,7 @@
 package com.newsfeed.post.application.port.out;
 
 import com.newsfeed.post.domain.Post;
+import com.newsfeed.post.domain.PostCounts;
 
 import java.time.Instant;
 import java.util.List;
@@ -17,4 +18,11 @@ public interface PostRepositoryPort {
 
     /** 캐시 miss로 남은 ID들만 한 번의 IN 쿼리로 조회한다 (건별 findById 반복을 피한다). */
     List<Post> findAllByIds(List<Long> postIds);
+
+    Optional<PostCounts> findCounts(long postId);
+
+    /** posts.like_count를 원자적으로 증감한다 (UPDATE ... SET x = x + delta). */
+    void incrementLikeCount(long postId, int delta);
+
+    void incrementReplyCount(long postId, int delta);
 }

@@ -33,12 +33,11 @@ public class FeedController {
         }
     }
 
-    // likedByMe는 engagement 컨텍스트(6단계)가 구현되면 행동 캐시(post-likers:{id})를 조회해 채운다.
     record FeedItemResponse(long postId, String content, Instant createdAt, AuthorResponse author,
-                            int likeCount, int replyCount) {
+                            int likeCount, int replyCount, boolean likedByMe) {
         static FeedItemResponse of(GetFeedUseCase.FeedItem item) {
             return new FeedItemResponse(item.postId(), item.content(), item.createdAt(),
-                    AuthorResponse.of(item.author()), item.likeCount(), item.replyCount());
+                    AuthorResponse.of(item.author()), item.likeCount(), item.replyCount(), item.likedByMe());
         }
     }
 

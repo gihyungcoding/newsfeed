@@ -24,6 +24,8 @@ public class PostJpaEntity {
     @Column(nullable = false, length = 500)
     private String content;
 
+    // 도메인 Post에는 없다(§콘텐츠·횟수 캐시 분리) — @Modifying 증분 쿼리가 타깃으로 삼는
+    // 컬럼일 뿐이라 여기 raw 필드로만 존재한다. findCounts()가 이 값을 읽어 PostCounts로 변환한다.
     @Column(name = "like_count", nullable = false)
     private int likeCount;
 
@@ -40,13 +42,23 @@ public class PostJpaEntity {
         PostJpaEntity entity = new PostJpaEntity();
         entity.authorId = post.authorId();
         entity.content = post.content();
-        entity.likeCount = post.likeCount();
-        entity.replyCount = post.replyCount();
         entity.createdAt = post.createdAt();
         return entity;
     }
 
     Post toDomain() {
-        return new Post(id, authorId, content, likeCount, replyCount, createdAt);
+        return new Post(id, authorId, content, createdAt);
+    }
+
+    Long getId() {
+        return id;
+    }
+
+    int getLikeCount() {
+        return likeCount;
+    }
+
+    int getReplyCount() {
+        return replyCount;
     }
 }

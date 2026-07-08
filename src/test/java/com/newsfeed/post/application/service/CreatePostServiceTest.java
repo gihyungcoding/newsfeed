@@ -37,8 +37,7 @@ class CreatePostServiceTest {
         given(postRepository.save(postCaptor.capture()))
                 .willAnswer(invocation -> {
                     Post toSave = invocation.getArgument(0);
-                    return new Post(100L, toSave.authorId(), toSave.content(),
-                            toSave.likeCount(), toSave.replyCount(), toSave.createdAt());
+                    return new Post(100L, toSave.authorId(), toSave.content(), toSave.createdAt());
                 });
 
         Post result = createPostService.create(new CreatePostUseCase.Command(1L, "첫 포스트"));
