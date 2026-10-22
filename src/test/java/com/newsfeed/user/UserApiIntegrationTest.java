@@ -10,6 +10,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import static com.newsfeed.support.ApiFixtures.createPost;
+import static com.newsfeed.support.ApiFixtures.createUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -34,8 +36,8 @@ class UserApiIntegrationTest {
 
     @Test
     void 사용자_생성부터_팔로우_언팔로우까지_전체_시나리오() throws Exception {
-        long alice = createUser("alice", "Alice Kim");
-        long bob = createUser("bob", "Bob Lee");
+        long alice = createUser(mockMvc, "alice", "Alice Kim");
+        long bob = createUser(mockMvc, "bob", "Bob Lee");
 
         // 조회로 횟수 캐시를 예열한다 (cnt:user:{alice} 적재)
         mockMvc.perform(get("/api/users/{id}", alice).header("X-USER-ID", bob))
@@ -71,7 +73,7 @@ class UserApiIntegrationTest {
 
     @Test
     void 중복_username은_409다() throws Exception {
-        createUser("charlie", "Charlie");
+        createUser(mockMvc, "charlie", "Charlie");
         mockMvc.perform(post("/api/users")
                         .contentType("application/json")
                         .content("{\"username\":\"charlie\",\"displayName\":\"다른 찰리\"}"))
@@ -81,7 +83,7 @@ class UserApiIntegrationTest {
 
     @Test
     void 자기_자신_팔로우는_400이다() throws Exception {
-        long dave = createUser("dave", "Dave");
+        long dave = createUser(mockMvc, "dave", "Dave");
         mockMvc.perform(post("/api/users/{id}/follow", dave).header("X-USER-ID", dave))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("CANNOT_FOLLOW_SELF"));
@@ -108,16 +110,5 @@ class UserApiIntegrationTest {
                         .content("{\"username\":\"\",\"displayName\":\"x\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
-    }
-
-    private long createUser(String username, String displayName) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/users")
-                        .contentType("application/json")
-                        .content("{\"username\":\"%s\",\"displayName\":\"%s\"}"
-                                .formatted(username, displayName)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String body = result.getResponse().getContentAsString();
-        return Long.parseLong(body.replaceAll(".*\"id\":(\\d+).*", "$1"));
     }
 }

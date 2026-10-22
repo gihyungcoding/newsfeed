@@ -12,6 +12,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.time.Duration;
 import java.time.Instant;
 
+import static com.newsfeed.support.ApiFixtures.createPost;
+import static com.newsfeed.support.ApiFixtures.createUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -34,13 +36,13 @@ class EngagementApiIntegrationTest {
 
     @Test
     void 좋아요와_답글이_피드의_횟수와_likedByMe에_반영된다() throws Exception {
-        long alice = createUser("alice-engage", "Alice Engage");
-        long bob = createUser("bob-engage", "Bob Engage");
+        long alice = createUser(mockMvc, "alice-engage", "Alice Engage");
+        long bob = createUser(mockMvc, "bob-engage", "Bob Engage");
 
         mockMvc.perform(post("/api/users/{id}/follow", alice).header("X-USER-ID", bob))
                 .andExpect(status().isNoContent());
 
-        long postId = createPost(alice, "engagement 테스트 포스트");
+        long postId = createPost(mockMvc, alice, "engagement 테스트 포스트");
         awaitFeedContains(bob, postId); // 팬아웃이 먼저 반영돼야 이후 단언이 의미 있다
 
         // 좋아요 — 멱등: 두 번 눌러도 204, 횟수는 1로 고정
@@ -78,7 +80,7 @@ class EngagementApiIntegrationTest {
 
     @Test
     void 존재하지_않는_포스트에_좋아요하면_404다() throws Exception {
-        long bob = createUser("bob-engage-404", "Bob 404");
+        long bob = createUser(mockMvc, "bob-engage-404", "Bob 404");
         mockMvc.perform(post("/api/posts/{id}/like", 999999).header("X-USER-ID", bob))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("POST_NOT_FOUND"));
@@ -116,29 +118,5 @@ class EngagementApiIntegrationTest {
         return mockMvc.perform(get("/api/feed").header("X-USER-ID", userId))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
-    }
-
-    private long createUser(String username, String displayName) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/users")
-                        .contentType("application/json")
-                        .content("{\"username\":\"%s\",\"displayName\":\"%s\"}".formatted(username, displayName)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        return extractId(result);
-    }
-
-    private long createPost(long authorId, String content) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/posts")
-                        .header("X-USER-ID", authorId)
-                        .contentType("application/json")
-                        .content("{\"content\":\"%s\"}".formatted(content)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        return extractId(result);
-    }
-
-    private long extractId(MvcResult result) throws Exception {
-        String body = result.getResponse().getContentAsString();
-        return Long.parseLong(body.replaceAll(".*\"id\":(\\d+).*", "$1"));
     }
 }

@@ -33,11 +33,13 @@ public class GetPostsByIdsService implements GetPostsByIdsUseCase {
             return List.of();
         }
         Map<Long, Post> posts = resolvePosts(postIds);
-        Map<Long, PostCounts> counts = resolveCounts(postIds);
+        // 실제로 존재하는 포스트만 횟수를 조회한다 — 존재하지 않는 postId(예: 없는 포스트에 대한
+        // 좋아요 404 요청)까지 조회하면 cnt:post:{id}에 {0,0} 쓰레기 키가 계속 쌓인다
+        Map<Long, PostCounts> counts = resolveCounts(postIds.stream().filter(posts::containsKey).toList());
 
         return postIds.stream()
                 .filter(posts::containsKey)
-                .map(id -> PostView.of(posts.get(id), counts.getOrDefault(id, PostCounts.zero())))
+                .map(id -> PostView.of(posts.get(id), counts.get(id)))
                 .toList();
     }
 

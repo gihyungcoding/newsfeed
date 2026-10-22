@@ -30,7 +30,7 @@ public final class RedisKeys {
         return "following:" + userId;
     }
 
-    /** 포스트 콘텐츠 캐시 (String, JSON). */
+    /** 포스트 콘텐츠 캐시 (Hash {authorId, content, createdAt}). */
     public static String post(long postId) {
         return "post:" + postId;
     }

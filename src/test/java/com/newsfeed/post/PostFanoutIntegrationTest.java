@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 
+import static com.newsfeed.support.ApiFixtures.createPost;
+import static com.newsfeed.support.ApiFixtures.createUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -39,13 +41,13 @@ class PostFanoutIntegrationTest {
 
     @Test
     void 포스트_발행이_팔로워의_피드_캐시에_팬아웃된다() throws Exception {
-        long alice = createUser("alice-fanout", "Alice");
-        long bob = createUser("bob-fanout", "Bob");
+        long alice = createUser(mockMvc, "alice-fanout", "Alice");
+        long bob = createUser(mockMvc, "bob-fanout", "Bob");
 
         mockMvc.perform(post("/api/users/{id}/follow", alice).header("X-USER-ID", bob))
                 .andExpect(status().isNoContent());
 
-        long postId = createPost(alice, "첫 팬아웃 테스트 포스트");
+        long postId = createPost(mockMvc, alice, "첫 팬아웃 테스트 포스트");
 
         Set<String> feedMembers = awaitFeedContains(bob, postId);
 
@@ -63,29 +65,5 @@ class PostFanoutIntegrationTest {
             Thread.sleep(200);
         }
         return redisTemplate.opsForZSet().range(key, 0, -1);
-    }
-
-    private long createUser(String username, String displayName) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/users")
-                        .contentType("application/json")
-                        .content("{\"username\":\"%s\",\"displayName\":\"%s\"}".formatted(username, displayName)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        return extractId(result);
-    }
-
-    private long createPost(long authorId, String content) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/posts")
-                        .header("X-USER-ID", authorId)
-                        .contentType("application/json")
-                        .content("{\"content\":\"%s\"}".formatted(content)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        return extractId(result);
-    }
-
-    private long extractId(MvcResult result) throws Exception {
-        String body = result.getResponse().getContentAsString();
-        return Long.parseLong(body.replaceAll(".*\"id\":(\\d+).*", "$1"));
     }
 }

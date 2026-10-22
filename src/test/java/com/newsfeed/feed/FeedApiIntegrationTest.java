@@ -12,6 +12,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.time.Duration;
 import java.time.Instant;
 
+import static com.newsfeed.support.ApiFixtures.createPost;
+import static com.newsfeed.support.ApiFixtures.createUser;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -30,13 +32,13 @@ class FeedApiIntegrationTest {
 
     @Test
     void 팔로우한_사람의_포스트가_피드에_나타난다() throws Exception {
-        long alice = createUser("alice-feed", "Alice Feed");
-        long bob = createUser("bob-feed", "Bob Feed");
+        long alice = createUser(mockMvc, "alice-feed", "Alice Feed");
+        long bob = createUser(mockMvc, "bob-feed", "Bob Feed");
 
         mockMvc.perform(post("/api/users/{id}/follow", alice).header("X-USER-ID", bob))
                 .andExpect(status().isNoContent());
 
-        long postId = createPost(alice, "피드 테스트 포스트");
+        long postId = createPost(mockMvc, alice, "피드 테스트 포스트");
 
         String body = awaitFeedContains(bob, postId);
 
@@ -46,15 +48,15 @@ class FeedApiIntegrationTest {
 
     @Test
     void 커서로_다음_페이지를_조회하면_이전_페이지와_겹치지_않는다() throws Exception {
-        long alice = createUser("alice-cursor", "Alice Cursor");
-        long bob = createUser("bob-cursor", "Bob Cursor");
+        long alice = createUser(mockMvc, "alice-cursor", "Alice Cursor");
+        long bob = createUser(mockMvc, "bob-cursor", "Bob Cursor");
 
         mockMvc.perform(post("/api/users/{id}/follow", alice).header("X-USER-ID", bob))
                 .andExpect(status().isNoContent());
 
-        long firstPostId = createPost(alice, "첫 포스트");
+        long firstPostId = createPost(mockMvc, alice, "첫 포스트");
         Thread.sleep(10); // score(작성시각 millis)가 서로 달라야 순서를 구분할 수 있다
-        long secondPostId = createPost(alice, "두번째 포스트");
+        long secondPostId = createPost(mockMvc, alice, "두번째 포스트");
 
         awaitFeedContains(bob, secondPostId);
 
@@ -98,29 +100,5 @@ class FeedApiIntegrationTest {
         }
         return mockMvc.perform(get("/api/feed").header("X-USER-ID", userId))
                 .andReturn().getResponse().getContentAsString();
-    }
-
-    private long createUser(String username, String displayName) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/users")
-                        .contentType("application/json")
-                        .content("{\"username\":\"%s\",\"displayName\":\"%s\"}".formatted(username, displayName)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        return extractId(result);
-    }
-
-    private long createPost(long authorId, String content) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/posts")
-                        .header("X-USER-ID", authorId)
-                        .contentType("application/json")
-                        .content("{\"content\":\"%s\"}".formatted(content)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        return extractId(result);
-    }
-
-    private long extractId(MvcResult result) throws Exception {
-        String body = result.getResponse().getContentAsString();
-        return Long.parseLong(body.replaceAll(".*\"id\":(\\d+).*", "$1"));
     }
 }

@@ -35,7 +35,7 @@
 | 계층 | 대상 | Redis 키 | 자료구조 | 정책 |
 |------|------|----------|----------|------|
 | **뉴스피드** | 뉴스 피드 | `feed:{userId}` | Sorted Set (member=postId, score=작성시각 epoch millis) | 상한 500개 (`ZREMRANGEBYRANK feed:{id} 0 -501`), TTL 30일 (비활성 유저 자연 소멸) |
-| **콘텐츠** | 일반 콘텐츠 | `post:{postId}` | String (JSON) | look-aside, TTL 1시간 |
+| **콘텐츠** | 일반 콘텐츠 | `post:{postId}` | Hash `{authorId, content, createdAt}` | look-aside, TTL 1시간. 발행 후 바뀌지 않는 필드만 담는다 (횟수는 `cnt:post`가 별도로 담당) |
 | | 인기 콘텐츠 | `author-posts:{celebrityId}` | Sorted Set (member=postId, score=작성시각) | celebrity의 최근 포스트 목록. 조회 시 pull 경로가 매번 DB를 치지 않도록 캐시. 발행 시 write-through, TTL 1시간 |
 | | 작성자 프로필 | `user:{userId}` | Hash `{username, displayName, createdAt}` | look-aside, TTL 1시간. 피드 아이템의 작성자 정보 조립에 사용 |
 | **소셜 그래프** | 팔로잉 | `following:{userId}` | Set (userId) | look-aside, TTL 1시간. 피드 조회 시 celebrity 필터링에 사용 |
@@ -106,6 +106,14 @@ GET /api/feed?cursor={epochMillis}&size=20
 
 - **커서 기반 페이지네이션**: offset 방식은 새 포스트 유입 시 중복/누락이 생기므로 시각 기반 커서를 쓴다.
 - 2단계의 celebrity 목록은 자주 바뀌지 않으므로 추후 캐시 대상(로드맵).
+
+### 구현에서 확정된 세부 사항과 알려진 한계
+
+- **"cursor 미만(제외)" 처리**: Spring Data Redis의 `ZSetOperations.reverseRangeByScoreWithScores`는 `double` min/max 오버로드만 제공해 Redis CLI의 `(cursor` 문법을 쓸 수 없다. 대신 cursor에서 `0.5`를 뺀 값을 상한으로 쓴다. score가 정수 밀리초(13자리)라 `1e-6` 같은 작은 값은 double 유효자릿수 한계로 반올림되어 사라진다 — 실제로 겪은 버그이며, 정수 score 간 최소 간격(1)의 절반인 0.5가 안전하다.
+- **celebrity 깊은 페이지네이션 미지원**: celebrity pull은 `author-posts` 캐시(최근 100개)에서 가져오므로, 커서가 그보다 오래된 시점을 가리키면 celebrity 포스트는 병합 대상에서 빠진다. 일반 팔로잉의 push분은 `feed:{userId}`(최근 500개) 범위 안에서만 페이지네이션된다.
+- **`nextCursor` 휴리스틱**: 결과가 정확히 `size`개면 다음 페이지가 있다고 가정한다. 마지막 페이지가 정확히 `size`개로 끝나면 다음 호출이 빈 목록을 반환하며 자연 종료된다.
+- **언팔로우는 피드 캐시를 소급 정리하지 않는다**: 이미 push된 postId는 TTL/상한(500개)으로 자연 소멸할 때까지 남는다.
+- **조회 경로의 건별 캐시 왕복**: `post:{id}`·`cnt:post:{id}`·`post-likers:{id}` 조회는 postId마다 개별 Redis 호출이다. 페이지당 20~40건 규모에서는 허용 범위이며, 병목이 되면 Redis 파이프라인(또는 `MGET`)으로 묶는 것이 첫 번째 최적화 후보다.
 
 ## 3.5 좋아요·답글 쓰기 경로 (engagement 컨텍스트)
 
